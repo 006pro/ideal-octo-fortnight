@@ -75,6 +75,21 @@ function validateModel(): void {
 }
 
 /**
+ * Validate the GitHub token. Optional for public repositories, so warn instead of exiting.
+ */
+function validateGitHubToken(): void {
+  if (process.env.GITHUB_TOKEN) {
+    console.log('🔑 Using GITHUB_TOKEN for GitHub MCP server');
+    return;
+  }
+  console.warn(
+    '⚠️  GITHUB_TOKEN is not set. Public repositories still work, but GitHub API rate limits are low\n' +
+    '   and private repositories are inaccessible. Create a token at https://github.com/settings/tokens\n' +
+    '   (scopes: repo, read:org) and add GITHUB_TOKEN=ghp_... to your .env.'
+  );
+}
+
+/**
  * Main entry point for the Claude Multi-Agent Code Review System
  * Usage: npm run dev <owner> <repo> <pr-number>
  */
@@ -82,6 +97,7 @@ async function main(): Promise<void> {
   const { owner, repo, prNumber } = parseArgs(process.argv.slice(2));
   validateAuth();
   validateModel();
+  validateGitHubToken();
 
   console.log(`🔍 Reviewing ${owner}/${repo}#${prNumber} with model ${process.env.ANTHROPIC_MODEL}...`);
 
@@ -124,4 +140,7 @@ async function main(): Promise<void> {
   }
 }
 
-main();
+main().catch(error => {
+  console.error(`\n❌ Unexpected error: ${formatError(error)}`);
+  process.exit(1);
+});

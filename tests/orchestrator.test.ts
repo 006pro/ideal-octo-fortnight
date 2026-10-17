@@ -190,13 +190,28 @@ describe('CodeReviewOrchestrator', () => {
   });
 
   describe('Integration', () => {
-    // Requires real API keys; run manually with RUN_INTEGRATION=1
-    it.skipIf(!process.env.RUN_INTEGRATION)('should review a real small PR', async () => {
+    // These call the real Claude API and GitHub MCP server.
+    // Run manually with: RUN_INTEGRATION=1 npm test
+    // CLI equivalent:    npm run dev -- octocat Hello-World 1
+    const runReal = async (owner: string, repo: string, prNumber: number) => {
       const { query } = await vi.importActual<typeof import('@anthropic-ai/claude-agent-sdk')>(
         '@anthropic-ai/claude-agent-sdk'
       );
       queryMock.mockImplementation(query);
-      const report = await new CodeReviewOrchestrator().reviewPullRequest('udacity', 'cd14715-simple-todo-app', 1);
+      return new CodeReviewOrchestrator().reviewPullRequest(owner, repo, prNumber);
+    };
+
+    it.skipIf(!process.env.RUN_INTEGRATION)('should review a real PR: octocat/Hello-World#1', async () => {
+      // Fetches a real public PR via GitHub MCP; its changes are trivial (README text),
+      // so the report may legitimately contain few or no findings — we assert structure.
+      const report = await runReal('octocat', 'Hello-World', 1);
+      expect(ReviewReportSchema.safeParse(report).success).toBe(true);
+      expect(report.pullRequest).toEqual({ owner: 'octocat', repo: 'Hello-World', number: 1 });
+      expect(report.summary.totalFiles).toBe(report.fileReviews.length);
+    }, 30 * 60 * 1000);
+
+    it.skipIf(!process.env.RUN_INTEGRATION)('should review a real PR with findings: udacity/cd14715-simple-todo-app#1', async () => {
+      const report = await runReal('udacity', 'cd14715-simple-todo-app', 1);
       expect(ReviewReportSchema.safeParse(report).success).toBe(true);
       expect(report.fileReviews.length).toBeGreaterThan(0);
     }, 30 * 60 * 1000);
